@@ -29,5 +29,38 @@ FROM user_transactions)
 select transaction_date,user_id, count(product_id) as purchase_count
 from cte 
 where stt=1
-group by user_id, transaction_date
+group by user_id, transaction_date  
 order by transaction_date
+--ex5--
+SELECT user_id, tweet_date,
+round(avg(tweet_count) over (partition by user_id	order by tweet_date rows BETWEEN 2 preceding and current row),2) as rolling_avg_3d
+FROM tweets
+--ex6--
+with cte as(SELECT merchant_id, credit_card_id, amount,
+transaction_timestamp,
+(extract(epoch from transaction_timestamp- lag(transaction_timestamp) over(partition by merchant_id,credit_card_id, amount)))/60 as min_dif
+FROM transactions)
+select count(*) from cte as payment_count
+where min_dif<=10
+--ex7--
+with cte as (select category, product, sum(spend) as total_spend,
+rank() over (partition by category order by sum(spend) desc) as rank
+from product_spend
+where extract (year from transaction_date)=2022
+group by category, product)
+select category, product, total_spend
+from cte  
+where rank in (1,2)
+--ex8--
+with cte as(SELECT  a.artist_name, count(*),
+dense_rank() over(order by (count(*)) desc)
+FROM artists as a
+left join songs as b
+on a.artist_id=b.artist_id
+left join global_song_rank as c  
+on b.song_id=c.song_id
+where rank<=10
+group by a.artist_name)
+select cte.artist_name, cte.dense_rank as artist_rank
+from cte
+where dense_rank<=5
